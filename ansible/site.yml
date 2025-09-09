@@ -1,0 +1,55 @@
+---
+- name: Deploy 3-tier Django + React app using Docker Compose
+  hosts: appserver
+  become: yes
+
+  vars:
+    app_dir: /opt/three_tier_app
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: yes
+
+    - name: Ensure app directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy docker-compose file
+      copy:
+        src: docker-compose.yml
+        dest: "{{ app_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Copy .env file with sensitive data
+      copy:
+        dest: "{{ app_dir }}/.env"
+        content: |
+          POSTGRES_PASSWORD={{ lookup('env', 'POSTGRES_PASSWORD') }}
+          DJANGO_SECRET_KEY={{ lookup('env', 'DJANGO_SECRET_KEY') }}
+        mode: '0600'
+
+    - name: Start the application stack
+      community.docker.docker_compose:
+        project_src: "{{ app_dir }}"
+        files:
+          - docker-compose.yml
+        environment:
+          POSTGRES_PASSWORD: "{{ lookup('env', 'POSTGRES_PASSWORD') }}"
+          DJANGO_SECRET_KEY: "{{ lookup('env', 'DJANGO_SECRET_KEY') }}"
+        restarted: true
+        pull: true
+
+    - name: Display app URLs
+      debug:
+        msg:
+          - "Frontend: http://<server_ip>:3000"
+          - "Backend: http://<server_ip>:8000"
