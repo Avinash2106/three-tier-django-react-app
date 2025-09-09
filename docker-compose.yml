@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - appnet
+
+  backend:
+    image: ghcr.io/aviyadav/django-react-boilerplate-backend:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DB_NAME: mydb
+      DB_USER: myuser
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 5432
+    networks:
+      - appnet
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: ghcr.io/aviyadav/django-react-boilerplate-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      REACT_APP_API_URL: http://backend:8000
+    networks:
+      - appnet
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
+
+networks:
+  appnet:
+    driver: bridge
